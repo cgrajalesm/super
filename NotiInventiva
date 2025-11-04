@@ -1,0 +1,349 @@
+import tableauserverclient as TSC
+import pandas as pd
+from io import StringIO
+import requests
+import json
+import os
+from datetime import datetime
+
+# ==================== CONFIGURATION ====================
+TABLEAU_SERVER = "https://prod-useast-b.online.tableau.com"
+TOKEN_NAME = "Python"
+TOKEN_VALUE = ""
+SITE_CONTENT_URL = "superdealimentos40"
+
+SLACK_TOKEN = ""
+SLACK_CHANNEL = "#test_charlie"
+
+# Folder to save raw data
+OUTPUT_FOLDER = "tableau_raw_data"
+
+# Workbook configurations
+WORKBOOK_CONFIGS = [
+    {
+        "name": "[Copia_Auto] INM_Gestión Puesta a Punto",
+        "display_name": "Gestión Desarrollo Tecnológico",
+        "meta_view": "KPI",
+        "meta_column": "Meta ",
+        "indicador_view": "KPI Cumpl (2)",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI (2)",
+        "prom_dias_column": "Avg. Dias Transcurridos",
+        "generadas_view": "Acumulado (3)",
+        "generadas_column": "Finalizadas",
+        "competitividad_mes_view": "Competitividad (3)",
+        "competitividad_mes_column": "Competitividad",
+        "competitividad_total_view": "Competitividad (4)",
+        "competitividad_total_column": "Competitividad"
+    },
+    {
+        "name": "[Copia_Auto] INM_Tablero Diseño",
+        "display_name": "Tablero Diseño",
+        "meta_view": "KPI Cumpl",
+        "meta_column": "Meta Diseño",
+        "indicador_view": "KPI Cumpl (2)",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI Global (2)",
+        "prom_dias_column": "Avg. Tiempo Total",
+        "generadas_view": "Acumulado",
+        "generadas_column": "Finalizados",
+        "competitividad_mes_view": "Competitividad",
+        "competitividad_mes_column": "Competitividad Diseño"
+    },
+    {
+        "name": "[Copia_Auto] INM_Maquinas_Herramientas",
+        "display_name": "Máquinas Herramientas",
+        "meta_view": "KPI (3)",
+        "meta_column": "Meta de M&H",
+        "indicador_view": "Hoja 32",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI",
+        "prom_dias_column": "Avg. Tiem Productividad (Hr)",
+        "generadas_view": "Estado acum",
+        "generadas_column": "Finalizadas",
+        "competitividad_mes_view": "Competitividad",
+        "competitividad_mes_column": "Competitividad M&H",
+        "competitividad_total_view": "Total competititiv",
+        "competitividad_total_column": "Competitividad M&H"
+    },
+    {
+        "name": "[Copia_Auto] INM_Gestión Solicitudes Ingenieria",
+        "display_name": "Gestión Solicitudes Ingeniería",
+        "meta_static": "60%",
+        "indicador_view": "KPI Cumpl (2)",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI (2)",
+        "prom_dias_column": "Avg. Dias de Creación a Fin Intervención",
+        "generadas_view": "Acumulado (3)",
+        "generadas_column": "Finalizadas",
+        "competitividad_mes_view": "Competitividad (3)",
+        "competitividad_mes_column": "Competitividad Soluciones Ing",
+        "competitividad_total_view": "Total Compet",
+        "competitividad_total_column": "Competitividad"
+    },
+    {
+        "name": "[Copia_Auto] INM_Automatización y Robotización",
+        "display_name": "Automatización y Robotización",
+        "meta_static": "60%",
+        "indicador_view": "KPI Cumpl (2)",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI (2)",
+        "prom_dias_column": "Avg. Dias de Creación a Fin Intervención",
+        "generadas_view": "Acumulado (3)",
+        "generadas_column": "Finalizadas",
+        "competitividad_mes_view": "Competitividad (3)",
+        "competitividad_mes_column": "Competitividad Control Potencia",
+        "competitividad_total_view": "Total compet",
+        "competitividad_total_column": "Competitividad"
+    },
+    {
+        "name": "[Copia_Auto] INM_Serv Automatización y Control",
+        "display_name": "Servicios Automatización y Control",
+        "meta_static": "60%",
+        "indicador_view": "KPI Cumpl (2)",
+        "indicador_column": "Avg. Indicador",
+        "prom_dias_view": "KPI (2)",
+        "prom_dias_column": "Avg. Dias de Creación a Fin Intervención",
+        "generadas_view": "Acumulado (3)",
+        "generadas_column": "Finalizadas",
+        "competitividad_mes_view": "Competitividad (3)",
+        "competitividad_mes_column": "Competitividad",
+        "competitividad_total_view": "Total compet",
+        "competitividad_total_column": "Competitividad Control Potencia"
+    }
+]
+
+
+# ==================== HELPER FUNCTIONS ====================
+def create_output_folder():
+    """Create output folder if it doesn't exist"""
+    if not os.path.exists(OUTPUT_FOLDER):
+        os.makedirs(OUTPUT_FOLDER)
+        print(f"Created folder: {OUTPUT_FOLDER}")
+
+
+def get_view_dataframe(server, workbook_item, view_name):
+    """Extract data from a Tableau view as DataFrame"""
+    if not view_name:
+        return None
+    
+    server.workbooks.populate_views(workbook_item)
+    view = next((v for v in workbook_item.views if v.name == view_name), None)
+    
+    if not view:
+        print(f"  ⚠️  View '{view_name}' not found")
+        return None
+    
+    try:
+        server.views.populate_csv(view)
+        csv_data = b"".join(view.csv).decode('utf-8')
+        
+        if not csv_data.strip():
+            print(f"  ⚠️  Empty data for view '{view_name}'")
+            return None
+        
+        df = pd.read_csv(StringIO(csv_data))
+        print(f"  ✓ Extracted '{view_name}': {len(df)} rows")
+        return df
+    
+    except Exception as e:
+        print(f"  ✗ Error extracting '{view_name}': {e}")
+        return None
+
+
+def save_dataframe(df, workbook_name, view_name):
+    """Save DataFrame to CSV in output folder"""
+    if df is None or df.empty:
+        return
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_workbook_name = workbook_name.replace("[Copia_Auto] ", "").replace(" ", "_")
+    safe_view_name = view_name.replace(" ", "_").replace("(", "").replace(")", "")
+    filename = f"{safe_workbook_name}_{safe_view_name}_{timestamp}.csv"
+    filepath = os.path.join(OUTPUT_FOLDER, filename)
+    
+    df.to_csv(filepath, index=False, encoding='utf-8-sig')
+    print(f"  💾 Saved: {filename}")
+
+
+def extract_value(df, column_name):
+    """Safely extract first value from DataFrame column"""
+    if df is None or df.empty or column_name not in df.columns:
+        return "N/A"
+    
+    value = df[column_name].dropna()
+    return value.iloc[0] if len(value) > 0 else "N/A"
+
+
+def format_number(value):
+    """Convert string number to float and round"""
+    if value == "N/A":
+        return "N/A"
+    try:
+        if isinstance(value, str):
+            value = value.replace(',', '.').strip()
+        return round(float(value))
+    except:
+        return "N/A"
+
+
+def format_percentage(value):
+    """Convert decimal to percentage string"""
+    if value == "N/A":
+        return "N/A"
+    try:
+        if isinstance(value, str):
+            value = value.replace(',', '.')
+        return f"{float(value) * 100:.1f}%"
+    except:
+        return value
+
+
+# ==================== MAIN PROCESSING ====================
+def process_workbook(server, config):
+    """Process a single workbook and extract all required data"""
+    print(f"\n{'='*60}")
+    print(f"Processing: {config['display_name']}")
+    print('='*60)
+    
+    # Find workbook
+    workbook = None
+    for wb in TSC.Pager(server.workbooks):
+        if wb.name == config["name"]:
+            workbook = wb
+            break
+    
+    if not workbook:
+        print(f"✗ Workbook not found: {config['name']}")
+        return None
+    
+    print(f"✓ Workbook found")
+    
+    # Extract and save all data
+    data = {}
+    
+    # Meta
+    if "meta_static" in config:
+        data["meta"] = config["meta_static"]
+    else:
+        df = get_view_dataframe(server, workbook, config.get("meta_view"))
+        if df is not None:
+            save_dataframe(df, config["name"], config["meta_view"])
+        data["meta"] = extract_value(df, config.get("meta_column"))
+    
+    # Indicador
+    df = get_view_dataframe(server, workbook, config["indicador_view"])
+    if df is not None:
+        save_dataframe(df, config["name"], config["indicador_view"])
+    data["indicador"] = extract_value(df, config["indicador_column"])
+    
+    # Prom Dias
+    df = get_view_dataframe(server, workbook, config["prom_dias_view"])
+    if df is not None:
+        save_dataframe(df, config["name"], config["prom_dias_view"])
+    data["prom_dias"] = format_number(extract_value(df, config["prom_dias_column"]))
+    
+    # Generadas
+    df = get_view_dataframe(server, workbook, config["generadas_view"])
+    if df is not None:
+        save_dataframe(df, config["name"], config["generadas_view"])
+    data["generadas"] = format_number(extract_value(df, config["generadas_column"]))
+    
+    # Competitividad Mes
+    df = get_view_dataframe(server, workbook, config.get("competitividad_mes_view"))
+    if df is not None:
+        save_dataframe(df, config["name"], config["competitividad_mes_view"])
+    data["competitividad_mes"] = extract_value(df, config.get("competitividad_mes_column"))
+    
+    # Competitividad Total
+    if "competitividad_total_view" in config:
+        df = get_view_dataframe(server, workbook, config["competitividad_total_view"])
+        if df is not None:
+            save_dataframe(df, config["name"], config["competitividad_total_view"])
+        data["competitividad_total"] = extract_value(df, config.get("competitividad_total_column"))
+    else:
+        data["competitividad_total"] = "N/A"
+    
+    data["display_name"] = config["display_name"]
+    return data
+
+
+def build_slack_message(data):
+    """Build formatted Slack message from extracted data"""
+    indicador = format_percentage(data["indicador"])
+    
+    message = f"""*{data["display_name"]}:*
+*🏁 Meta:* {data["meta"]}
+*📈 Indicador:* {indicador}
+*📊 Competitividad mes:* {data["competitividad_mes"]}
+*📊 Competitividad Total:* {data["competitividad_total"]}
+*🎟️ Generadas Finalizado:* {data["generadas"]}
+*📅 Prom. creación vs fin de intervención:* {data["prom_dias"]}"""
+    
+    return message
+
+
+def send_slack_message(message):
+    """Send message to Slack channel"""
+    payload = {
+        "channel": SLACK_CHANNEL,
+        "text": message
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {SLACK_TOKEN}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+    
+    response = requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers=headers,
+        json=payload
+    )
+    
+    if response.ok and response.json().get('ok'):
+        print("\n✓ Message sent to Slack successfully")
+    else:
+        print(f"\n✗ Error sending to Slack: {response.text}")
+
+
+# ==================== MAIN EXECUTION ====================
+def main():
+    """Main execution function"""
+    print("Starting Tableau data extraction...")
+    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Create output folder
+    create_output_folder()
+    
+    # Authenticate with Tableau
+    auth = TSC.PersonalAccessTokenAuth(TOKEN_NAME, TOKEN_VALUE, site_id=SITE_CONTENT_URL)
+    server = TSC.Server(TABLEAU_SERVER, use_server_version=True)
+    
+    with server.auth.sign_in(auth):
+        print("✓ Authenticated with Tableau\n")
+        
+        # Process all workbooks
+        messages = []
+        for config in WORKBOOK_CONFIGS:
+            data = process_workbook(server, config)
+            if data:
+                messages.append(build_slack_message(data))
+        
+        # Send combined message to Slack
+        if messages:
+            final_message = "\n\n".join(messages)
+            print("\n" + "="*60)
+            print("FINAL MESSAGE:")
+            print("="*60)
+            print(final_message)
+            print("="*60)
+            send_slack_message(final_message)
+        else:
+            print("\n✗ No data extracted from any workbook")
+    
+    print(f"\n✓ Process completed. Raw data saved in: {OUTPUT_FOLDER}/")
+
+
+if __name__ == "__main__":
+    main()
