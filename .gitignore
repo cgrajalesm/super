@@ -1,0 +1,23 @@
+# Archivos temporales de depuración
+debug_output.txt
+full_output.txt
+
+# Datos generados por el script NotiInventiva
+tableau_raw_data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
