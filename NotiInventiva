@@ -229,7 +229,8 @@ def process_workbook(server, config):
         df = get_view_dataframe(server, workbook, config.get("meta_view"))
         if df is not None:
             save_dataframe(df, config["name"], config["meta_view"])
-        data["meta"] = extract_value(df, config.get("meta_column"))
+        meta_value = extract_value(df, config.get("meta_column"))
+        data["meta"] = format_percentage(meta_value)
     
     # Indicador
     df = get_view_dataframe(server, workbook, config["indicador_view"])
