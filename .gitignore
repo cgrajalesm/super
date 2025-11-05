@@ -1,6 +1,7 @@
 # Archivos temporales de depuración
 debug_output.txt
 full_output.txt
+nueva_ejecucion.txt
 
 # Datos generados por el script NotiInventiva
 tableau_raw_data/
