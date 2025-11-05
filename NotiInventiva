@@ -77,7 +77,7 @@ WORKBOOK_CONFIGS = [
         "generadas_view": "Acumulado (3)",
         "generadas_column": "Finalizadas",
         "competitividad_mes_view": "Competitividad (3)",
-        "competitividad_mes_column": "Competitividad Soluciones Ing",
+        "competitividad_mes_column": "Competitividad",
         "competitividad_total_view": "Total Compet",
         "competitividad_total_column": "Competitividad"
     },
