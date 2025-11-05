@@ -271,15 +271,21 @@ def process_workbook(server, config):
 def build_slack_message(data):
     """Build formatted Slack message from extracted data"""
     indicador = format_percentage(data["indicador"])
-    
+
     message = f"""*{data["display_name"]}:*
 *🏁 Meta:* {data["meta"]}
 *📈 Indicador:* {indicador}
-*📊 Competitividad mes:* {data["competitividad_mes"]}
-*📊 Competitividad Total:* {data["competitividad_total"]}
+*📊 Competitividad mes:* {data["competitividad_mes"]}"""
+
+    # Solo incluir Competitividad Total si no es N/A
+    if data["competitividad_total"] != "N/A":
+        message += f"""
+*📊 Competitividad Total:* {data["competitividad_total"]}"""
+
+    message += f"""
 *🎟️ Generadas Finalizado:* {data["generadas"]}
 *📅 Prom. creación vs fin de intervención:* {data["prom_dias"]}"""
-    
+
     return message
 
 
