@@ -4,6 +4,15 @@ full_output.txt
 nueva_ejecucion.txt
 test_output.txt
 
+# Archivos Excel de prueba y temporales
+*.xlsx
+Correos.xlsx
+Inasistencias.xlsx
+temp_*.xlsx
+
+# Scripts de utilidad para crear datos de prueba
+crear_*.py
+
 # Datos generados por el script NotiInventiva
 tableau_raw_data/
 
