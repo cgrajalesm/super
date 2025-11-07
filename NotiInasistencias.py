@@ -25,7 +25,7 @@ SMTP_PORT = 587
 
 # Slack setup
 SLACK_TOKEN = ""
-SLACK_CHANNEL = "#bot_test"
+SLACK_CHANNEL = "#test_charlie"
 
 # Excel path
 EXCEL_PATH = r"Inasistencias.xlsx"
