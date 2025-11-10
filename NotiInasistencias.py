@@ -190,7 +190,7 @@ if all_data:
                     table_ref = f"A1:{openpyxl.utils.get_column_letter(max_col)}{max_row}"
                     
                     # Create table with unique name for each sheet
-                    tab = Table(displayName=f"Tabla_{sheet_name.replace(' ', '_').replace('-', '_')}", ref=table_ref)
+                    tab = Table(displayName=f"Tabla1", ref=table_ref)
                     
                     # Add a default table style
                     style = TableStyleInfo(
